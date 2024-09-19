@@ -1,5 +1,6 @@
-#include <iostream>
-#include <ctime>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 
 void FillRand(int array[], int size)
 {
@@ -19,7 +20,7 @@ void PrintArr(int array[], int size)
     printf("\n");
 }
 
-double BubbleSort(int array[], int size)
+void BubbleSort(int array[], int size)
 {
     int i, j, temp;
     for (i = 0; i < size - 1; i++)
@@ -34,18 +35,27 @@ double BubbleSort(int array[], int size)
             }
         }
     }
-    return clock() / 1000.0;
 }
 
-main()
+int main()
 {
-    for (int size = 1000; size <= 10000; size += 1000)
+    clock_t start, end;
+    double cpu_time_used;
+
+    for (int size = 1000; size <= 25000; size += 1000)
     {
         int array[size];
-        std::cout << "\nArray size = " << size << std::endl;
+        printf("\nArray size = %d", size);
 
         FillRand(array, size);
-        std::cout << "Runtime: " << BubbleSort(array, size) << std::endl;
+
+        start = clock(); // Начало отсчета времени
+        BubbleSort(array, size);
+        end = clock(); // Конец отсчета времени
+        cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
+
+        printf("\tRuntime = %.3f", cpu_time_used);
     }
+
     return 0;
 }
