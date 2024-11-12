@@ -26,7 +26,10 @@ void print_memory_maps(pid_t pid)
 int main()
 {
     void *handle;
-    void (*hello)();
+    Student *(*createStudent)();
+    void (*addStudent)();
+    void (*printStudents)();
+    void (*freeStudents)();
     pid_t pid = getpid();
 
     // загрузка библиотеки
@@ -34,6 +37,39 @@ int main()
     if (!handle)
     {
         fprintf(stderr, "%s\n", dlerror());
+        exit(EXIT_FAILURE);
+    }
+
+    // Вызов функций из библиотеки
+    createStudent = dlsym(handle, "createStudent");
+    if (!createStudent)
+    {
+        fprintf(stderr, "%s\n", dlerror());
+        dlclose(handle);
+        exit(EXIT_FAILURE);
+    }
+
+    addStudent = dlsym(handle, "addStudent");
+    if (!addStudent)
+    {
+        fprintf(stderr, "%s\n", dlerror());
+        dlclose(handle);
+        exit(EXIT_FAILURE);
+    }
+
+    printStudents = dlsym(handle, "printStudents");
+    if (!printStudents)
+    {
+        fprintf(stderr, "%s\n", dlerror());
+        dlclose(handle);
+        exit(EXIT_FAILURE);
+    }
+
+    freeStudents = dlsym(handle, "freeStudents");
+    if (!freeStudents)
+    {
+        fprintf(stderr, "%s\n", dlerror());
+        dlclose(handle);
         exit(EXIT_FAILURE);
     }
 
