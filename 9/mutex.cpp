@@ -11,7 +11,7 @@
 volatile int running = 1;
 int turn = 1;
 char sh[6];
-pthread_spinlock_t spinlock;
+pthread_mutex_t mutex;
 
 void *Thread(void *pParams);
 void handle_sigint(int sig)
@@ -25,7 +25,7 @@ int main(void)
   struct tms start_time, end_time;
   clock_t real_start_time, real_end_time;
 
-  pthread_spin_init(&spinlock, PTHREAD_PROCESS_PRIVATE);
+  pthread_mutex_init(&mutex, NULL);
 
   signal(SIGINT, handle_sigint);
   pthread_create(&thread_id, NULL, &Thread, NULL);
@@ -34,20 +34,20 @@ int main(void)
 
   while (running)
   {
-    pthread_spin_lock(&spinlock);
+    pthread_mutex_lock(&mutex);
     if (turn == 0)
     {
       printf("%s", sh);
       fflush(stdout);
       turn = 1;
     }
-    pthread_spin_unlock(&spinlock);
+    pthread_mutex_unlock(&mutex);
   }
 
   pthread_cancel(thread_id);
   pthread_join(thread_id, NULL);
 
-  pthread_spin_destroy(&spinlock);
+  pthread_mutex_destroy(&mutex);
 
   real_end_time = times(&end_time);
 
@@ -65,7 +65,7 @@ void *Thread(void *pParams)
   int counter = 0;
   while (counter < MAX_COUNT)
   {
-    pthread_spin_lock(&spinlock);
+    pthread_mutex_lock(&mutex);
     if (turn == 1)
     {
       if (counter % 2)
@@ -79,7 +79,7 @@ void *Thread(void *pParams)
       counter++;
       turn = 0;
     }
-    pthread_spin_unlock(&spinlock);
+    pthread_mutex_unlock(&mutex);
   }
   running = 0;
   return NULL;
