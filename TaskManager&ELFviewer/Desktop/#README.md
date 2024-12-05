@@ -6,7 +6,7 @@
 #### 1. Запуск программы
 Компиляция программы:
 ```
-gcc main.c task_manager.c elf_viewer.c -o task_elf_manager -lelf
+gcc desktop.c task_manager.c elf_viewer.c -o task_elf_manager -lelf
 ```
 Использование sudo: Для завершения процессов и изменения их приоритета программа требует прав суперпользователя. Запуск:
 ```

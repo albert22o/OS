@@ -31,7 +31,11 @@ void list_processes()
             unsigned long mem;
             FILE *stat;
 
-            snprintf(path, sizeof(path), "/proc/%s/stat", entry->d_name);
+            if (snprintf(path, sizeof(path), "/proc/%s/stat", entry->d_name) >= sizeof(path))
+            {
+                fprintf(stderr, "Path is too long, skipping: %s\n", entry->d_name);
+                continue;
+            }
             stat = fopen(path, "r");
 
             if (stat)
