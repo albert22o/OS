@@ -56,8 +56,8 @@ float integrateOnSphere(float *h_volume, int nx, int ny, int nz,
     cudaMemcpy3D(&copyParams);
 
     // Привязка текстуры
-    tex3DRef.normalized = false;               // используем реальные координаты
-    tex3DRef.filterMode = cudaFilterModePoint; // отключаем линейную интерполяцию
+    tex3DRef.normalized = true;                 // используем реальные координаты
+    tex3DRef.filterMode = cudaFilterModeLinear; // отключаем линейную интерполяцию
     tex3DRef.addressMode[0] = cudaAddressModeClamp;
     tex3DRef.addressMode[1] = cudaAddressModeClamp;
     tex3DRef.addressMode[2] = cudaAddressModeClamp;
