@@ -2,6 +2,7 @@
 nvcc -ptx matrix_mul.cu -arch=sm_86
 nvcc driver_api.cpp -o driver_api -I/usr/local/cuda/include -L/usr/local/cuda/lib64 -lcuda
 ./driver_api
+ожидаемое время выполнения: ~550 μs
 */
 
 #include <cstdio>

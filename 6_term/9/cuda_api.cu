@@ -1,6 +1,7 @@
 /*
 nvcc cuda_api.cu -o cuda_api -arch=sm_86
 ./cuda_api
+ожидаемое время выполнения: ~500 μs
 */
 
 #include <cstdio>

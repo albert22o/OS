@@ -50,7 +50,7 @@ cuMemAlloc.restype = int
 
 cuMemcpyHtoD = cuda.cuMemcpyHtoD 
 cuMemcpyHtoD.argtypes = [c_void_p, c_void_p, c_size_t]
-cuMemAlloc.restype = int
+cuMemcpyHtoD.restype = int
 
 cuMemcpyDtoH = cuda.cuMemcpyDtoH 
 cuMemcpyDtoH.argtypes = [c_void_p, c_void_p, c_size_t]
