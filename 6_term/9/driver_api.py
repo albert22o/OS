@@ -3,92 +3,121 @@
 # ожидаемое время выполнения: ~1200 μs
 
 import numpy as np
-from cuda_driver import *
-from ctypes import *
+from ctypes import c_void_p, c_float, c_int, c_char_p, POINTER, byref, cast, create_string_buffer
 import sys
+import cuda_driver as cuda 
 
-def check_cuda_error(res, msg):
-    if res != CUDA_SUCCESS:
-        error_str = c_char_p()
-        cuGetErrorString(res, byref(error_str))
-        print(f"Ошибка {msg}: {error_str.value.decode()}")
-        sys.exit(1)
+# Константы
+CUDA_SUCCESS = cuda.CUDA_SUCCESS
+block_size = 16  # Размер блока (16x16 потоков)
 
-N = 512
-BLOCK_SIZE = 16
-size = N * N * np.float32().itemsize
+def check_cuda_error(err_code):
+    """Проверка кода ошибки CUDA и генерация исключения при необходимости."""
+    if err_code != CUDA_SUCCESS:
+        err_str = c_char_p()
+        cuda.cuGetErrorString(err_code, byref(err_str))
+        raise RuntimeError(f"CUDA ошибка: {err_str.value.decode()}")
 
-# Инициализация CUDA
-check_cuda_error(cuInit(0), "cuInit")
+def main():
+    # Инициализация CUDA
+    check_cuda_error(cuda.cuInit(0))
 
-cuDevice = c_int(0)
-check_cuda_error(cuDeviceGet(byref(cuDevice), 0), "cuDeviceGet")
+    # Получение количества устройств
+    device_count = c_int()
+    check_cuda_error(cuda.cuDeviceGetCount(byref(device_count)))
+    if device_count.value == 0:
+        raise RuntimeError("Нет доступных CUDA-устройств")
+    print(f"Найдено устройств: {device_count.value}")
 
-cuContext = c_void_p()
-check_cuda_error(cuCtxCreate(byref(cuContext), 0, cuDevice), "cuCtxCreate")
+    # Получение дескриптора устройства
+    device = c_int()
+    check_cuda_error(cuda.cuDeviceGet(byref(device), 0))
 
-# Матрицы
-h_A = np.ones((N, N), dtype=np.float32)
-h_B = np.ones((N, N), dtype=np.float32)
-h_C = np.zeros((N, N), dtype=np.float32)
+    # Создание контекста
+    context = c_void_p()
+    check_cuda_error(cuda.cuCtxCreate(byref(context), 0, device))
 
-# Выделение памяти на GPU
-d_A = c_void_p(0)
-d_B = c_void_p(0)
-d_C = c_void_p(0)
-check_cuda_error(cuMemAlloc(byref(d_A), size), "cuMemAlloc(d_A)")
-check_cuda_error(cuMemAlloc(byref(d_B), size), "cuMemAlloc(d_B)")
-check_cuda_error(cuMemAlloc(byref(d_C), size), "cuMemAlloc(d_C)")
+    # Загрузка PTX-модуля
+    module = c_void_p()
+    with open("obj/matrix_mul.ptx", "rb") as f:
+        ptx_data = f.read()
+    check_cuda_error(cuda.cuModuleLoadData(byref(module), ptx_data))
 
-# Копирование данных
-check_cuda_error(cuMemcpyHtoD(d_A, h_A.ctypes.data, size), "HtoD(d_A)")
-check_cuda_error(cuMemcpyHtoD(d_B, h_B.ctypes.data, size), "HtoD(d_B)")
+    # Получение функции ядра
+    kernel_func = c_void_p()
+    kernel_name = b"matmul"
+    check_cuda_error(cuda.cuModuleGetFunction(byref(kernel_func), module, kernel_name))
 
-# Загрузка PTX
-cuModule = c_void_p()
-check_cuda_error(cuModuleLoad(byref(cuModule), b"obj/matrix_mul.ptx"), "cuModuleLoad")
+    # Параметры матриц
+    M, N, K = 512, 512, 512  # Размеры матриц (MxN) * (NxK) = (MxK)
+    size_A = M * N * np.dtype(np.float32).itemsize
+    size_B = N * K * np.dtype(np.float32).itemsize
+    size_C = M * K * np.dtype(np.float32).itemsize
 
-# Получение ядра
-cuFunction = c_void_p()
-check_cuda_error(cuModuleGetFunction(byref(cuFunction), cuModule, b"matrixMul"), "cuModuleGetFunction")
+    # Выделение памяти на устройстве
+    d_A = c_void_p()
+    d_B = c_void_p()
+    d_C = c_void_p()
+    check_cuda_error(cuda.cuMemAlloc(byref(d_A), size_A))
+    check_cuda_error(cuda.cuMemAlloc(byref(d_B), size_B))
+    check_cuda_error(cuda.cuMemAlloc(byref(d_C), size_C))
 
-# Аргументы ядра
-N_ctypes = c_int(N)
-args = [
-    cast(d_A, c_void_p),
-    cast(d_B, c_void_p),
-    cast(d_C, c_void_p),
-    cast(byref(N_ctypes), c_void_p)
-]
-arg_ptrs = (c_void_p * len(args))(*args)
+    # Инициализация данных на хосте
+    A = np.random.randn(M, N).astype(np.float32)
+    B = np.random.randn(N, K).astype(np.float32)
+    C_host = np.zeros((M, K), dtype=np.float32)
 
-# Конфигурация запуска
-gridX = (N + BLOCK_SIZE - 1) // BLOCK_SIZE
-gridY = gridX
+    # Копирование данных на устройство
+    check_cuda_error(cuda.cuMemcpyHtoD(d_A, A.ctypes.data, size_A))
+    check_cuda_error(cuda.cuMemcpyHtoD(d_B, B.ctypes.data, size_B))
 
-# События для замера времени
-start = c_void_p()
-stop = c_void_p()
-check_cuda_error(cuEventCreate(byref(start), 0), "cuEventCreate(start)")
-check_cuda_error(cuEventCreate(byref(stop), 0), "cuEventCreate(stop)")
+    # Настройка параметров запуска ядра
+    grid_x = (K + block_size - 1) // block_size
+    grid_y = (M + block_size - 1) // block_size
+    args = [d_A, d_B, d_C, M, N, K]
+    args = [cast(byref(arg), c_void_p) for arg in args]
 
-check_cuda_error(cuEventRecord(start, 0), "cuEventRecord(start)")
-check_cuda_error(cuLaunchKernel(cuFunction, gridX, gridY, 1, BLOCK_SIZE, BLOCK_SIZE, 1, 0, 0, arg_ptrs, 0), "cuLaunchKernel")
-cuCtxSynchronize()  # Синхронизация!
-check_cuda_error(cuEventRecord(stop, 0), "cuEventRecord(stop)")
-check_cuda_error(cuEventSynchronize(stop), "cuEventSynchronize")
+    # Создание событий для замера времени
+    start_event = c_void_p()
+    end_event = c_void_p()
+    check_cuda_error(cuda.cuEventCreate(byref(start_event), 0))
+    check_cuda_error(cuda.cuEventCreate(byref(end_event), 0))
 
-# Время выполнения
-time_ms = c_float()
-check_cuda_error(cuEventElapsedTime(byref(time_ms), start, stop), "cuEventElapsedTime")
-print(f"Время: {time_ms.value:.3f} мс")
+    # Запуск ядра и замер времени
+    check_cuda_error(cuda.cuEventRecord(start_event, 0))
+    check_cuda_error(cuda.cuLaunchKernel(
+        kernel_func,
+        grid_x, grid_y, 1,  # grid dimensions
+        block_size, block_size, 1,  # block dimensions
+        0, 0,  # shared memory and stream
+        (c_void_p * len(args))(*args), 0
+    ))
+    check_cuda_error(cuda.cuEventRecord(end_event, 0))
+    check_cuda_error(cuda.cuEventSynchronize(end_event))
 
-# Проверка результатов
-check_cuda_error(cuMemcpyDtoH(h_C.ctypes.data, d_C, size), "DtoH")
-print("Проверка C[0][0]:", h_C[0, 0])  # Должно быть 512.0
+    # Расчет времени выполнения
+    time_ms = c_float()
+    check_cuda_error(cuda.cuEventElapsedTime(byref(time_ms), start_event, end_event))
+    print(f"Время выполнения: {time_ms.value} мс")
 
-# Очистка
-cuMemFree(d_A)
-cuMemFree(d_B)
-cuMemFree(d_C)
-cuCtxDestroy(cuContext)
+    # Копирование результата на хост
+    check_cuda_error(cuda.cuMemcpyDtoH(C_host.ctypes.data, d_C, size_C))
+
+    # Проверка результата с помощью numpy
+    C_np = np.dot(A, B)
+    if np.allclose(C_host, C_np, atol=1e-3):
+        print("Результат верный")
+    else:
+        print("Результат неверный")
+
+    # Освобождение ресурсов
+    check_cuda_error(cuda.cuMemFree(d_A))
+    check_cuda_error(cuda.cuMemFree(d_B))
+    check_cuda_error(cuda.cuMemFree(d_C))
+    check_cuda_error(cuda.cuEventDestroy(start_event))
+    check_cuda_error(cuda.cuEventDestroy(end_event))
+    check_cuda_error(cuda.cuModuleUnload(module))
+    check_cuda_error(cuda.cuCtxDestroy(context))
+
+if __name__ == "__main__":
+    main()
