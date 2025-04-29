@@ -88,3 +88,15 @@ cuEventElapsedTime.restype = int
 cuGetErrorString = cuda.cuGetErrorString
 cuGetErrorString.argtypes = [c_int, POINTER(c_char_p)]
 cuGetErrorString.restype = int
+
+cuModuleLoadData = cuda.cuModuleLoadData
+cuModuleLoadData.argtypes = [POINTER(c_void_p), c_void_p]
+cuModuleLoadData.restype = int
+
+cuEventDestroy = cuda.cuEventDestroy
+cuEventDestroy.argtypes = [c_void_p]
+cuEventDestroy.restype = int
+
+cuModuleUnload = cuda.cuModuleUnload
+cuModuleUnload.argtypes = [c_void_p]
+cuModuleUnload.restype = int
