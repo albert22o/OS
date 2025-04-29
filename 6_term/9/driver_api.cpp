@@ -107,7 +107,7 @@ int main()
     // Замер времени
     float ms;
     cuEventElapsedTime(&ms, start, stop);
-    printf("CUDA Driver API (C/C++) Time: %.3f мс\n", ms);
+    printf("CUDA Driver API (C/C++) \tTime: %.3f ms\n", ms);
 
     // Копирование результатов
     res = cuMemcpyDtoH(h_C, d_C, N * N * sizeof(float));

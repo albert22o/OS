@@ -71,7 +71,7 @@ int main()
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
 
-    printf("CUDA API Time: %.3f ms\n", milliseconds);
+    printf("CUDA API \t\t\tTime: %.3f ms\n", milliseconds);
 
     // Освобождение памяти
     cudaFree(d_A);
