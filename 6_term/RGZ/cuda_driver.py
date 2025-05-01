@@ -68,7 +68,7 @@ cuCtxDestroy = cuda.cuCtxDestroy
 cuCtxDestroy.argtypes = [c_void_p]
 cuCtxDestroy.restype = int
 
-# Добавленные функции
+# Добавленные строки
 cuEventCreate = cuda.cuEventCreate
 cuEventCreate.argtypes = [POINTER(c_void_p), c_uint]
 cuEventCreate.restype = int
